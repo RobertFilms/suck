@@ -1,6 +1,8 @@
 // Start an express server with websockets without socket.io
 const express = require('express');
 const WebSocket = require('ws');
+// import sqlite3 database module
+const sqlite3 = require('sqlite3').verbose();
 // import unique id handler
 const { v4: uuidv4 } = require('uuid');
 // import custome GameCode
@@ -15,7 +17,6 @@ app.set('view engine', 'ejs');
 
 // set express to use public for static files
 app.use(express.static(__dirname + '/public'));
-
 
 // Define a route handler for the default home page
 app.get('/', (req, res) => {
@@ -85,3 +86,19 @@ http.listen(3000, () => {
     console.log('Server started on http://localhost:3000');
 });
 
+// open the database file
+let db = new sqlite3.Database('data/database.db', (err) => {
+    if (err) {
+        console.error(err.message);
+    }
+    console.log('Connected to the database.');
+    db.get('SELECT * FROM general', (err, row) => {
+        if (err) {
+            console.error(err.message);
+        } else if (row) {
+            console.log(row);
+            // Save the row to the game object
+            game.stats = row;
+        }
+    });
+});

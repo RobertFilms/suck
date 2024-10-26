@@ -33,6 +33,11 @@ class Game {
         this.gameWidth = 2000 + (this.numPlayers * this.additionalSpace);
         this.gameHeight = 2000 + (this.numPlayers * this.additionalSpace);
 
+        let top = {
+            score: 0,
+            name: '',
+            uid: 0
+        }
         // If there are less than the limit of blobs, create a new blob
         if (this.blobs.length < this.blobLimit()) {
             // create a temporary blob, then test to see if it collides with any other blobs
@@ -44,6 +49,11 @@ class Game {
                 this.blobCounter++,
                 type);
             for (const blob of this.blobs) {
+                if (blob.r > this.stats.top_score) {
+                    this.stats.top_score = blob.r;
+                    this.stats.top_name = blob.name;
+                    this.stats.top_uid = blob.name || 0;
+                }
                 if (blob.containsBlob(tempBlob)) {
                     tempBlob = null;
                     break;
