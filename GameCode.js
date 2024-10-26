@@ -131,6 +131,7 @@ class Blob {
         this.travelX = Number((Math.random() * 4 - 2).toFixed(2));
         this.travelY = Number((Math.random() * 4 - 2).toFixed(2));
         this.color = "#FFFFFF";
+        this.name = () => { return "" };
     }
 
     // Each from will move the blob in its travel direction
@@ -158,6 +159,19 @@ class Blob {
         // Return true if the distance is less than this blob's radius and this blob is larger than the other blob
         return distance < this.r && this.r > blob.r;
     }
+
+    //reduce this down to a smaller object for sending to the client
+    pack() {
+        return {
+            id: this.id,
+            x: this.x,
+            y: this.y,
+            r: this.r,
+            type: this.type,
+            color: this.color,
+            name: this.name
+        }
+    }
 }
 
 // Create a blob that is the Player
@@ -168,7 +182,7 @@ class Player extends Blob {
         this.minSpeedMulti = 0.25;
         // Generate a random color for the blob
         this.color = "#" + Math.floor(Math.random() * 16777215).toString(16);
-        this.name();
+        this.name = this.makeName();
     }
 
     // Player will move based on keypresses abd momentum
@@ -206,7 +220,7 @@ class Player extends Blob {
         this.yMom *= 0.9;
     }
 
-    name() {
+    makeName() {
         const adjectives = [
             "abundant", "abysmal", "aged", "ancient", "arbitrary", "artificial", "barren", "bitter",
             "bland", "blurry", "boiling", "bumpy", "chaotic", "clumsy", "coarse", "cold", "colossal",
@@ -234,7 +248,7 @@ class Player extends Blob {
             "stream", "stretch", "stripe", "thicket", "trail", "trench", "veil", "void", "wave",
             "whisper", "wrinkle", "zone"
         ];
-        this.name = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
+        return this.name = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
     }
 
 }

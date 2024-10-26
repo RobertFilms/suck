@@ -35,6 +35,11 @@ const game = new GameCode.Game();
 setInterval(() => {
     game.numPlayers = wss.clients.size;
     game.step();
+    // pack all blobs into an update message and send to all clients
+    let update = [];
+    for (const blob of game.blobs) {
+        update.push(blob.pack());
+    }
     wss.clients.forEach((client) => {
         client.send(JSON.stringify({ update: game.blobs }));
     });
