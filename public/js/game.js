@@ -30,16 +30,24 @@ ws.onmessage = (message) => {
         // Reset the blobs array
         blobs = [];
         biggest = { size: 0, name: "" };
+        numPlayers = 0;
         // Add each blob from the message to the blobs array
         for (const blob of message.update) {
             blobs.push(new Blob(blob.x, blob.y, blob.r, blob.id, blob.type, blob.name));
-            blobs[blobs.length - 1].color = blob.color;
+            this.blobs[this.blobs.length - 1].color = blob.color;
+            if (blob.type === "player") numPlayers++;
             if (blob.r > biggest.size && blob.name) {
                 biggest.size = blob.r;
                 biggest.name = blob.name;
             }
         }
     }
+}
+
+// listen for disconnects
+ws.onclose = () => {
+    //reload the page
+    location.reload();
 }
 
 // Create a Blob class with the usually movement properties
@@ -51,7 +59,7 @@ class Blob {
         this.r = r;
         this.type = type;
         this.name = name;
-        this.color = "#0000FF"
+        this.color = "#000000"
     }
 
     // Draw the blob on the canvas
@@ -74,12 +82,12 @@ class Blob {
         ctx.stroke();
         // if this type is player, write their name above them
         if (this.type === "player") {
-            ctx.font = '36px serif';
+            ctx.font = Math.min(parseInt(30 * camera.multiplier), 30) + 'px BubbleGums';
             ctx.fillStyle = 'black';
             ctx.fillText(
                 this.name,
-                camera.width / 2 + (compareX * camera.multiplier) - (this.name.length * 7),
-                camera.height / 2 + (compareY * camera.multiplier)
+                camera.width / 2 + (compareX * camera.multiplier) - (ctx.measureText(this.name).width / 2),
+                camera.height / 2 + (compareY * camera.multiplier) - (this.r * camera.multiplier) - 10
             );
         }
         return 1;
@@ -101,6 +109,27 @@ class Player extends Blob {
     }
 }
 
+class touchUI {
+    constructor() {
+        this.visible = false;
+    }
+
+    draw() {
+        if (this.visible) {
+            ctx.beginPath();
+            ctx.arc(
+                canvas.width - 50,
+                canvas.height - 50,
+                40,
+                0, 2 * Math.PI);
+            ctx.fillStyle = "#000000";
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+}
+
 // Set the game over state
 gameState = "";
 
@@ -109,6 +138,9 @@ var blobs = [];
 
 // biggest blob
 var biggest = { size: 0, name: "" };
+
+// number of players
+var numPlayers = 0;
 
 // Get the canvas and context
 var canvas = document.getElementById('gameWindow');
@@ -135,15 +167,9 @@ function step() {
     // If the game is over, show the game over text
     if (gameState == "lose") {
         // show game over text in middle of screen
-        ctx.font = '48px serif';
+        ctx.font = '30px BubbleGums';
         ctx.fillStyle = 'red';
-        ctx.fillText('Ya got sucked', canvas.width / 2 - 100, canvas.height / 2);
-    }
-    // If the game is won, show the win text
-    else if (gameState == "win") {
-        // show win text in middle of screen
-        ctx.font = '48px serif';
-        ctx.fillText("You're the big suck!", canvas.width / 2 - 100, canvas.height / 2);
+        ctx.fillText('ya got sucked', canvas.width / 2 - 100, canvas.height / 2);
     }
 
     // Otherwise, keep playing the game
@@ -157,12 +183,13 @@ function step() {
             count += blob.draw();
         }
         // draw name of biggest blob in top left of screen
-
-        ctx.font = '24px serif';
+        ctx.font = '20px BubbleGums';
         ctx.fillStyle = 'black';
         ctx.fillText(biggest.name + " is the biggest suck", 10, 30);
-
-
+        // draw number of players below that
+        ctx.fillText(numPlayers + " players are trying to suck", 10, 60);
+        // draw camera's target's r in bottom left of screen
+        if (camera.target) ctx.fillText("your suck size is " + parseInt(camera.target.r), 10, 90);
         // Call the next frame
         requestAnimationFrame(step);
     }
@@ -175,15 +202,23 @@ requestAnimationFrame(step);
 document.addEventListener('keydown', (event) => {
     switch (event.key) {
         case 'w':
+        case 'W':
+        case 'ArrowUp':
             ws.send(JSON.stringify({ press: 'up' }));
             break;
         case 's':
+        case 'S':
+        case 'ArrowDown':
             ws.send(JSON.stringify({ press: 'down' }));
             break;
         case 'a':
+        case 'A':
+        case 'ArrowLeft':
             ws.send(JSON.stringify({ press: 'left' }));
             break;
         case 'd':
+        case 'D':
+        case 'ArrowRight':
             ws.send(JSON.stringify({ press: 'right' }));
             break;
         default:
@@ -195,18 +230,33 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('keyup', (event) => {
     switch (event.key) {
         case 'w':
+        case 'W':
+        case 'ArrowUp':
             ws.send(JSON.stringify({ release: 'up' }));
             break;
         case 's':
+        case 'S':
+        case 'ArrowDown':
             ws.send(JSON.stringify({ release: 'down' }));
             break;
         case 'a':
+        case 'A':
+        case 'ArrowLeft':
             ws.send(JSON.stringify({ release: 'left' }));
             break;
         case 'd':
+        case 'D':
+        case 'ArrowRight':
             ws.send(JSON.stringify({ release: 'right' }));
             break;
         default:
             break;
     }
+});
+
+//listen for touches
+document.addEventListener('touchstart', (event) => {
+    let x = event.touches[0].clientX;
+    let y = event.touches[0].clientY;
+    ws.send(JSON.stringify({ touch: { x, y } }));
 });

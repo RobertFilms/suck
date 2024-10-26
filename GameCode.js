@@ -3,32 +3,17 @@ class Game {
     constructor() {
         this.gameWidth = 2000;
         this.gameHeight = 2000;
+        this.additionalSpace = 100;
         this.tickSpeed = 1000 / 30;
         this.blobCounter = 0;
         this.blobs = [];
-        this.blobLimit = ((this.gameWidth + this.gameHeight) / 2) / 10;
+        this.blobLimit = () => { return ((this.gameWidth + this.gameHeight) / 2) / 10 };
         this.blobAbsorb = 0.1;
         this.baddyChance = 0.3;
         this.maxSize = 50;
+        this.numPlayers = 0;
+
         for (let i = 0; i < this.blobLimit; i++) {
-            let type = Math.random() > this.baddyChance ? "blob" : "baddy";
-            this.blobs.push(
-                new Blob(
-                    Math.random() * this.gameWidth,
-                    Math.random() * this.gameHeight,
-                    Math.round(Math.random() * 20) + 10,
-                    this.blobCounter++,
-                    type
-                ));
-            // Set the color of the blob we just created by its type
-            this.blobs[i].color = type === "blob" ? "#00FF00" : "#FF0000";
-        }
-    }
-
-    step() {
-
-        // If there are less than the limit of blobs, create a new blob
-        if (this.blobs.length < this.blobLimit) {
             let type = Math.random() > this.baddyChance ? "blob" : "baddy";
             this.blobs.push(
                 new Blob(
@@ -41,36 +26,70 @@ class Game {
             // Set the color of the blob we just created by its type
             this.blobs[this.blobs.length - 1].color = type === "blob" ? "#00FF00" : "#FF0000";
         }
+    }
 
+    step() {
+        // Adjust for the number of players
+        this.gameWidth = 2000 + (this.numPlayers * this.additionalSpace);
+        this.gameHeight = 2000 + (this.numPlayers * this.additionalSpace);
+
+        // If there are less than the limit of blobs, create a new blob
+        if (this.blobs.length < this.blobLimit()) {
+            // create a temporary blob, then test to see if it collides with any other blobs
+            let type = Math.random() > this.baddyChance ? "blob" : "baddy";
+            let tempBlob = new Blob(
+                Math.random() * this.gameWidth,
+                Math.random() * this.gameHeight,
+                Math.round(Math.random() * 20) + 10,
+                this.blobCounter++,
+                type);
+            for (const blob of this.blobs) {
+                if (blob.containsBlob(tempBlob)) {
+                    tempBlob = null;
+                    break;
+                }
+            }
+            if (tempBlob) {
+                this.blobs.push(tempBlob);
+                // Set the color of the blob we just created by its type
+                this.blobs[this.blobs.length - 1].color = type === "blob" ? "#00FF00" : "#FF0000";
+            }
+        }
+
+        this.numPlayers = 0;
+        // Move all the blobs
         for (const blob of this.blobs) {
+            if (blob.type === "player") this.numPlayers++;
             // remove the blob if it is not alive
             if (!blob.alive) {
                 this.blobs = this.blobs.filter(b => b.id !== blob.id);
             }
+
             // move the blob
             blob.move(this.gameWidth, this.gameHeight);
 
             // check if thhe blob is colliding with another blob
             for (const cblob of this.blobs) {
-                // if the blob contains another blob
+                // if the blob contains another blob and they are both alive
                 if (blob.containsBlob(cblob) && blob.alive && cblob.alive) {
-                    if (cblob.type === "baddy" && blob.type === "baddy" || cblob.type !== "baddy") {
+                    if (
+                        (cblob.type === "baddy" && blob.type === "baddy") // if both blobs are baddies
+                        || cblob.type !== "baddy" || cblob.r < 8 // or if the other blob is not a baddy or is smaller than 8
+                    ) {
                         // absorb the other blob
                         blob.r += cblob.r * this.blobAbsorb
                         // set the blob to not alive for next frame
                         cblob.alive = false;
                     } else {
+                        //shrink both blobs
                         blob.r -= cblob.r * this.blobAbsorb
                         cblob.r -= cblob.r * this.blobAbsorb
-                        if (cblob.r < 2) {
-                            cblob.alive = false;
-                        }
                     }
 
                     // blob can't be bigger than a quarter the map
                     blob.r = Math.min(blob.r, Math.max(this.gameWidth, this.gameHeight) * 0.25);
-                    // blob can't be smaller than 12
-                    blob.r = Math.max(blob.r, 12);
+                    // blob can't be smaller than 10
+                    blob.r = Math.max(blob.r, 10);
                 }
             }
 
@@ -124,9 +143,13 @@ class Blob {
         // if the blob hits the wall, change direction
         if (this.x + this.r > gW || this.x - this.r < 0) {
             this.travelX *= -1;
+            //move back into the map
+            this.x = Math.min(Math.max(this.x, this.r), gW - this.r);
         }
         if (this.y + this.r > gH || this.y - this.r < 0) {
             this.travelY *= -1;
+            //move back into the map
+            this.y = Math.min(Math.max(this.y, this.r), gH - this.r);
         }
     }
 
@@ -144,6 +167,7 @@ class Player extends Blob {
     constructor(x, y, r, id = null, type = "player") {
         // Get all the properties of the Blob class
         super(x, y, r, id, type);
+        this.minSpeedMulti = 0.25;
         // Generate a random color for the blob
         this.color = "#" + Math.floor(Math.random() * 16777215).toString(16);
         this.name();
@@ -153,16 +177,16 @@ class Player extends Blob {
     move(gW, gH) {
         // Move the player based on keypresses
         if (this.up) {
-            this.yMom -= this.ySpeed;
+            this.yMom -= this.ySpeed * Math.max(this.minSpeedMulti, ((100 - (this.r / 2)) / 100) + 0.1);
         }
         if (this.down) {
-            this.yMom += this.ySpeed;
+            this.yMom += this.ySpeed * Math.max(this.minSpeedMulti, ((100 - (this.r / 2)) / 100) + 0.1);
         }
         if (this.left) {
-            this.xMom -= this.xSpeed;
+            this.xMom -= this.xSpeed * Math.max(this.minSpeedMulti, ((100 - (this.r / 2)) / 100) + 0.1);
         }
         if (this.right) {
-            this.xMom += this.xSpeed;
+            this.xMom += this.xSpeed * Math.max(this.minSpeedMulti, ((100 - (this.r / 2)) / 100) + 0.1);
         }
 
         // Move the player based on momentum
@@ -180,39 +204,39 @@ class Player extends Blob {
         }
 
         // Use 80% friction to slow down the player
-        this.xMom *= 0.8;
-        this.yMom *= 0.8;
+        this.xMom *= 0.9;
+        this.yMom *= 0.9;
     }
 
     name() {
         const adjectives = [
-            "abundant", "abysmal", "aged", "ancient", "arbitrary", "artificial", "barren", "bitter", 
-            "bland", "blurry", "boiling", "bumpy", "chaotic", "clumsy", "coarse", "cold", "colossal", 
-            "confused", "crooked", "crude", "curved", "damaged", "decent", "distant", "dusty", 
-            "earthy", "empty", "faint", "feeble", "fickle", "filthy", "flat", "flimsy", "foul", 
-            "fragile", "frigid", "fuzzy", "giant", "greasy", "grim", "grimy", "harsh", "hazy", 
-            "hollow", "humid", "inferior", "jagged", "jumbled", "lean", "lethal", "limp", "loose", 
-            "lousy", "massive", "messy", "mild", "misty", "moist", "muddy", "murky", "narrow", 
-            "nasty", "obscure", "odd", "ordinary", "pale", "plain", "pointless", "poor", "prickly", 
-            "primitive", "raw", "rigid", "rocky", "rough", "rusty", "scattered", "shabby", "shallow", 
-            "shrill", "slimy", "slippery", "small", "smoky", "solid", "spare", "spiky", "spotted", 
-            "square", "stale", "stiff", "sturdy", "tarnished", "tense", "thick", "thin", "uneven", 
+            "abundant", "abysmal", "aged", "ancient", "arbitrary", "artificial", "barren", "bitter",
+            "bland", "blurry", "boiling", "bumpy", "chaotic", "clumsy", "coarse", "cold", "colossal",
+            "confused", "crooked", "crude", "curved", "damaged", "decent", "distant", "dusty",
+            "earthy", "empty", "faint", "feeble", "fickle", "filthy", "flat", "flimsy", "foul",
+            "fragile", "frigid", "fuzzy", "giant", "greasy", "grim", "grimy", "harsh", "hazy",
+            "hollow", "humid", "inferior", "jagged", "jumbled", "lean", "lethal", "limp", "loose",
+            "lousy", "massive", "messy", "mild", "misty", "moist", "muddy", "murky", "narrow",
+            "nasty", "obscure", "odd", "ordinary", "pale", "plain", "pointless", "poor", "prickly",
+            "primitive", "raw", "rigid", "rocky", "rough", "rusty", "scattered", "shabby", "shallow",
+            "shrill", "slimy", "slippery", "small", "smoky", "solid", "spare", "spiky", "spotted",
+            "square", "stale", "stiff", "sturdy", "tarnished", "tense", "thick", "thin", "uneven",
             "vague", "weak", "wilted", "wiry", "worn", "wrinkled"
-          ];
-          const nouns = [
-            "abyss", "angle", "arch", "ash", "badge", "bark", "beam", "beast", "blaze", "blend", 
-            "bluff", "blur", "branch", "brink", "burst", "canyon", "cave", "charm", "cliff", "coil", 
-            "creek", "crest", "crust", "dash", "depth", "ditch", "drain", "drift", "edge", "ember", 
-            "feast", "flake", "flicker", "flood", "fog", "forge", "fringe", "frost", "glow", "grain", 
-            "groove", "gust", "heap", "hitch", "hollow", "hue", "husk", "ice", "knot", "ledge", 
-            "loop", "marsh", "moss", "mound", "notch", "patch", "peak", "pebble", "pile", "plume", 
-            "pond", "pool", "pulse", "quarry", "ripple", "ridge", "rift", "ring", "river", "rust", 
-            "scale", "scrap", "shade", "shaft", "shard", "shear", "shell", "shrine", "slab", "slate", 
-            "slice", "smoke", "spark", "speck", "splinter", "spring", "stack", "stain", "streak", 
-            "stream", "stretch", "stripe", "thicket", "trail", "trench", "veil", "void", "wave", 
+        ];
+        const nouns = [
+            "abyss", "angle", "arch", "ash", "badge", "bark", "beam", "beast", "blaze", "blend",
+            "bluff", "blur", "branch", "brink", "burst", "canyon", "cave", "charm", "cliff", "coil",
+            "creek", "crest", "crust", "dash", "depth", "ditch", "drain", "drift", "edge", "ember",
+            "feast", "flake", "flicker", "flood", "fog", "forge", "fringe", "frost", "glow", "grain",
+            "groove", "gust", "heap", "hitch", "hollow", "hue", "husk", "ice", "knot", "ledge",
+            "loop", "marsh", "moss", "mound", "notch", "patch", "peak", "pebble", "pile", "plume",
+            "pond", "pool", "pulse", "quarry", "ripple", "ridge", "rift", "ring", "river", "rust",
+            "scale", "scrap", "shade", "shaft", "shard", "shear", "shell", "shrine", "slab", "slate",
+            "slice", "smoke", "spark", "speck", "splinter", "spring", "stack", "stain", "streak",
+            "stream", "stretch", "stripe", "thicket", "trail", "trench", "veil", "void", "wave",
             "whisper", "wrinkle", "zone"
-          ];
-          this.name = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
+        ];
+        this.name = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
     }
 
 }
