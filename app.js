@@ -16,14 +16,16 @@ app.set('view engine', 'ejs');
 // set express to use public for static files
 app.use(express.static(__dirname + '/public'));
 
+
 // Define a route handler for the default home page
 app.get('/', (req, res) => {
-    res.render(game);
-}
-);
+    res.render('info', { numPlayers: wss.clients.size });
+});
 
-app.get('/sp', (req, res) => {
-    res.sendFile(`${__dirname}/public/index.html`);
+// game page
+app.get('/game', (req, res) => {
+    console.log('home page');
+    res.render('game');
 });
 
 // create a new game instance
@@ -31,6 +33,7 @@ const game = new GameCode.Game();
 
 // Run the game loop and send updates every tick interval
 setInterval(() => {
+    game.numPlayers = wss.clients.size;
     game.step();
     wss.clients.forEach((client) => {
         client.send(JSON.stringify({ update: game.blobs }));

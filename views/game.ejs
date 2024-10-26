@@ -5,230 +5,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Suckario</title>
+  <style>
+    /* Remove any default margin and padding */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      /* Prevent scroll bars */
+    }
+
+    @font-face {
+      font-family: "BubbleGums";
+      src: url("BUBBLEGUMS.TTF");
+      font-weight: normal;
+      font-style: normal;
+    }
+
+  </style>
 </head>
 
 <body>
   <canvas width="800" height="600" id="gameWindow"></canvas>
 </body>
-<script>
-  // Create a Blob class with the usually movement properties
-  class Blob {
-    constructor(x, y, r) {
-      this.x = x;
-      this.y = y;
-      this.r = r;
-      this.up, this.down, this.left, this.right = false;
-      this.xMom = 0;
-      this.yMom = 0;
-      this.xSpeed = 1;
-      this.ySpeed = 1;
-      this.travelX = Math.random() * 4 - 2;
-      this.travelY = Math.random() * 4 - 2;
-      this.color = "#0000FF"
-    }
-
-    // Each from will move the blob in its travel direction
-    move() {
-      // move the blob in its travel direction
-      this.x += this.travelX;
-      this.y += this.travelY;
-      // if the blob hits the wall, change direction
-      if (this.x + this.r > gameWidth || this.x - this.r < 0) {
-        this.travelX *= -1;
-      }
-      if (this.y + this.r > gameHeight || this.y - this.r < 0) {
-        this.travelY *= -1;
-      }
-
-    }
-
-    // Draw the blob on the canvas
-    draw() {
-      // draw a circle with this blob's color
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.r, 0, 2 * Math.PI);
-      ctx.fillStyle = this.color;
-      ctx.fill();
-      ctx.stroke();
-    }
-
-    // Check if the blob contains another blob
-    containsBlob(blob) {
-      // Use pathagorean theorem to calculate distance between two blobs
-      let distance = Math.sqrt((blob.x - this.x) ** 2 + (blob.y - this.y) ** 2);
-      // Return true if the distance is less than this blob's radius and this blob is larger than the other blob
-      return distance < this.r && this.r > blob.r;
-    }
-  }
-
-  // Create a blob that is the Player
-  class Player extends Blob {
-    constructor(x, y, r) {
-      // Get all the properties of the Blob class
-      super(x, y, r);
-      // Set the player's color to red
-      this.color = "#FF0000";
-    }
-
-    // Player will move based on keypresses abd momentum
-    move() {
-      // Move the player based on keypresses
-      if (this.up) {
-        this.yMom -= this.ySpeed;
-      }
-      if (this.down) {
-        this.yMom += this.ySpeed;
-      }
-      if (this.left) {
-        this.xMom -= this.xSpeed;
-      }
-      if (this.right) {
-        this.xMom += this.xSpeed;
-      }
-
-      // Move the player based on momentum
-      this.x += this.xMom;
-      this.y += this.yMom;
-
-      // If the player hits the wall, stop the player
-      if (this.x + this.r > gameWidth || this.x - this.r < 0) {
-        this.xMom = 0;
-        this.x = Math.min(Math.max(this.x, this.r), gameWidth - this.r);
-      }
-      if (this.y + this.r > gameHeight || this.y - this.r < 0) {
-        this.yMom = 0;
-        this.y = Math.min(Math.max(this.y, this.r), gameHeight - this.r);
-      }
-
-      // Use 80% friction to slow down the player
-      this.xMom *= 0.8;
-      this.yMom *= 0.8;
-    }
-
-    // Draw the player on the canvas
-    draw() {
-      super.draw();
-    }
-  }
-
-
-  // Set the game width and height
-  let gameWidth = 800;
-  let gameHeight = 600;
-
-  // Set the game over state
-  gameOver = "";
-
-  // Create a player object
-  var player = new Player(100, 100, 20);
-
-  // Create an array of blobs
-  var blobs = [];
-
-  // Create 20 blobs at random locations
-  for (let i = 0; i < 20; i++) {
-    blobs.push(new Blob(Math.random() * gameWidth, Math.random() * gameHeight, Math.round(Math.random() * 20) + 10));
-  }
-
-  // Get the canvas and context
-  var canvas = document.getElementById('gameWindow');
-  var ctx = canvas.getContext('2d');
-
-  // This is the game loop
-  function step(timestamp) {
-
-    // If the game is over, show the game over text
-    if (gameOver == "lose") {
-      // show game over text in middle of screen
-      ctx.font = '48px serif';
-      ctx.fillText('Ya got sucked', 200, gameHeight / 2);
-    }
-    // If the game is won, show the win text
-    else if (gameOver == "win") {
-      // show win text in middle of screen
-      ctx.font = '48px serif';
-      ctx.fillText("You're the big suck!", 200, gameHeight / 2);
-    }
-    // Otherwise, keep playing the game
-    else {
-      // Clear the canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Move the player
-      player.move();
-
-      // Move and draw each blob
-      for (const blob of blobs) {
-        blob.move();
-        blob.draw();
-
-        // If the player contains the blob, the player grows and the blob is removed
-        if (player.containsBlob(blob)) {
-          player.r += blob.r * 0.1;
-          blobs.splice(blobs.indexOf(blob), 1);
-        }
-
-        // If the blob contains the player, the player loses
-        if (blob.containsBlob(player)) {
-          gameOver = "lose";
-        }
-
-        // If there are no blobs left, the player wins
-        if (blobs.length == 0) {
-          gameOver = "win";
-        }
-      }
-
-      // Draw the player
-      player.draw();
-
-      // Call the next frame
-      requestAnimationFrame(step);
-    }
-  }
-
-  // Start the game
-  requestAnimationFrame(step);
-
-  //listen for keypresses
-  document.addEventListener('keydown', (event) => {
-    switch (event.key) {
-      case 'w':
-        player.up = true;
-        break;
-      case 's':
-        player.down = true;
-        break;
-      case 'a':
-        player.left = true;
-        break;
-      case 'd':
-        player.right = true;
-        break;
-      default:
-        break;
-    }
-  });
-
-  //listen for key releases
-  document.addEventListener('keyup', (event) => {
-    switch (event.key) {
-      case 'w':
-        player.up = false;
-        break;
-      case 's':
-        player.down = false;
-        break;
-      case 'a':
-        player.left = false;
-        break;
-      case 'd':
-        player.right = false;
-        break;
-      default:
-        break;
-    }
-  });
-</script>
+<script src="js/game.js"></script>
 
 </html>

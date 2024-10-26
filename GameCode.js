@@ -56,10 +56,8 @@ class Game {
             }
         }
 
-        this.numPlayers = 0;
         // Move all the blobs
         for (const blob of this.blobs) {
-            if (blob.type === "player") this.numPlayers++;
             // remove the blob if it is not alive
             if (!blob.alive) {
                 this.blobs = this.blobs.filter(b => b.id !== blob.id);

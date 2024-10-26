@@ -1,6 +1,7 @@
 // find the ip address of the server by replacing the https or http with ws
 let host = window.location.href.replace("http", "ws");
 if (host.includes("wss")) host = host.replace("wss", "ws");
+host = host.replace("game", "");
 
 // open a ws connection to server
 const ws = new WebSocket(host);
