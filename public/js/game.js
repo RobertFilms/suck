@@ -100,37 +100,54 @@ class Blob {
     }
 }
 
-// Create a blob that is the Player
-class Player extends Blob {
-    constructor(x, y, r) {
-        // Get all the properties of the Blob class
-        super(x, y, r);
-        // Set the player's color to red
-        this.color = "#FF0000";
-    }
-
-    // Draw the player on the canvas
-    draw() {
-        super.draw();
-    }
-}
-
 class touchUI {
     constructor() {
         this.visible = false;
+        this.buttons = [
+            { x: 0, y: 0, w: 0, h: 0, text: "up", press: "up", release: "up" },
+            { x: 0, y: 0, w: 0, h: 0, text: "down", press: "down", release: "down" },
+            { x: 0, y: 0, w: 0, h: 0, text: "left", press: "left", release: "left" },
+            { x: 0, y: 0, w: 0, h: 0, text: "right", press: "right", release: "right" },
+        ]
     }
 
     draw() {
         if (this.visible) {
-            ctx.beginPath();
-            ctx.arc(
-                canvas.width - 50,
-                canvas.height - 50,
-                40,
-                0, 2 * Math.PI);
-            ctx.fillStyle = "#000000";
-            ctx.fill();
-            ctx.stroke();
+            // if camera is wider that it is tall
+            if (camera.width > camera.height) {
+                /* 
+                place four rectanglur buttons, 1/8th the screen width and 1/2 the screen height
+                up, left, right, down on the screen in the top-left, bottom-left, top-right, bottom-right respectively
+                */
+                this.buttons = [
+                    { x: 0, y: 0, w: camera.width / 8, h: camera.height / 2, text: "🢁", press: "up", release: "up" },
+                    { x: 0, y: camera.height / 2, w: camera.width / 8, h: camera.height / 2, text: "🢀", press: "left", release: "left" },
+                    { x: camera.width - camera.width / 8, y: 0, w: camera.width / 8, h: camera.height / 2, text: "🢂", press: "right", release: "right" },
+                    { x: camera.width - camera.width / 8, y: camera.height / 2, w: camera.width / 8, h: camera.height / 2, text: "🢃", press: "down", release: "down" },
+                ]
+            } else {
+                /* 
+                place four rectanglur buttons, 1/4th the screen width and 1/4 the screen height
+                across the bottom of the screen in left up down right order
+                */
+                this.buttons = [
+                    { x: 0, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢀", press: "left", release: "left" },
+                    { x: camera.width / 4, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢁", press: "up", release: "up" },
+                    { x: camera.width / 2, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢃", press: "down", release: "down" },
+                    { x: camera.width - camera.width / 4, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢂", press: "right", release: "right" },
+                ]
+            }
+            // draw each button
+            for (const button of this.buttons) {
+                ctx.beginPath();
+                ctx.rect(button.x, button.y, button.w, button.h);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fill();
+                ctx.stroke();
+                ctx.font = '20px arial';
+                ctx.fillStyle = 'white';
+                ctx.fillText(button.text, button.x + button.w / 2 - (ctx.measureText(button.text).width / 2), button.y + button.h / 2 + 10);
+            }
         }
     }
 
@@ -148,9 +165,16 @@ var biggest = { size: 0, name: "" };
 // number of players
 var numPlayers = 0;
 
+var ui = new touchUI();
+
 // Get the canvas and context
 var canvas = document.getElementById('gameWindow');
 var ctx = canvas.getContext('2d');
+
+// prevent right click context menu
+canvas.addEventListener('contextmenu', function(event) {
+    event.preventDefault(); // Prevent context menu from appearing
+}, false);
 
 var camera = {
     target: null,
@@ -177,8 +201,6 @@ function step() {
         ctx.fillStyle = 'red';
         ctx.fillText('ya got sucked', canvas.width / 2 - (ctx.measureText('ya got sucked').width / 2), canvas.height / 2 - 20);
         //if the current time minus the gameState is greater than 3 seconds, show a link
-        console.log(Date.now() - gameState);
-
         if (Date.now() - gameState > 2000) {
             // show link to game in middle of screen
             ctx.font = '20px BubbleGums';
@@ -202,11 +224,13 @@ function step() {
         // draw name of biggest blob in top left of screen
         ctx.font = '20px BubbleGums';
         ctx.fillStyle = 'black';
-        ctx.fillText(biggest.name + " is the biggest suck", 10, 30);
+        ctx.fillText(biggest.name + " is the biggest suck", camera.width / 2 - (ctx.measureText(biggest.name + " is the biggest suck").width / 2), 30);
         // draw number of players below that
-        ctx.fillText(numPlayers + " players are trying to suck", 10, 60);
+        ctx.fillText(numPlayers + " players are trying to suck", camera.width / 2 - (ctx.measureText(numPlayers + " players are trying to suck").width / 2), 60);
         // draw camera's target's r in bottom left of screen
-        if (camera.target) ctx.fillText("your suck size is " + parseInt(camera.target.r), 10, 90);
+        if (camera.target) ctx.fillText("your suck size is " + parseInt(camera.target.r), camera.width / 2 - (ctx.measureText("your suck size is " + parseInt(camera.target.r)).width / 2), 90);
+        // try to draw the touch ui
+        ui.draw();
         // Call the next frame
         requestAnimationFrame(step);
     }
@@ -217,6 +241,7 @@ requestAnimationFrame(step);
 
 //listen for keypresses
 document.addEventListener('keydown', (event) => {
+    ui.visible = false;
     switch (event.key) {
         case 'w':
         case 'W':
@@ -273,7 +298,41 @@ document.addEventListener('keyup', (event) => {
 
 //listen for touches
 document.addEventListener('touchstart', (event) => {
-    let x = event.touches[0].clientX;
-    let y = event.touches[0].clientY;
-    ws.send(JSON.stringify({ touch: { x, y } }));
+    event.preventDefault(); // Prevent default touch behaviors
+    ui.visible = true;
+    /* for each touch, check if it's inside a button 
+    and send the press message for that button */
+    for (const touch of event.touches) {
+        for (const button of ui.buttons) {
+            if (touch.clientX > button.x && touch.clientX < button.x + button.w && touch.clientY > button.y && touch.clientY < button.y + button.h) {
+                ws.send(JSON.stringify({ press: button.press }));
+            }
+        }
+    }
+});
+
+//listen for touch changes
+document.addEventListener('touchmove', (event) => {
+    /* for each touch, check if to see if it was inside a button, but moved out 
+    and send the release message for that button */
+    for (const touch of event.changedTouches) {
+        for (const button of ui.buttons) {
+            if (!(touch.clientX > button.x && touch.clientX < button.x + button.w && touch.clientY > button.y && touch.clientY < button.y + button.h)) {
+                ws.send(JSON.stringify({ release: button.release }));
+            }
+        }
+    }
+});
+
+//listen for touch ends
+document.addEventListener('touchend', (event) => {
+    /* for each touch, check if it's inside a button 
+    and send the release message for that button */
+    for (const touch of event.changedTouches) {
+        for (const button of ui.buttons) {
+            if (touch.clientX > button.x && touch.clientX < button.x + button.w && touch.clientY > button.y && touch.clientY < button.y + button.h) {
+                ws.send(JSON.stringify({ release: button.release }));
+            }
+        }
+    }
 });
