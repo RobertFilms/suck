@@ -313,6 +313,7 @@ document.addEventListener('touchstart', (event) => {
 
 //listen for touch changes
 document.addEventListener('touchmove', (event) => {
+    event.preventDefault();
     /* for each touch, check if to see if it was inside a button, but moved out 
     and send the release message for that button */
     for (const touch of event.changedTouches) {
@@ -326,6 +327,7 @@ document.addEventListener('touchmove', (event) => {
 
 //listen for touch ends
 document.addEventListener('touchend', (event) => {
+    event.preventDefault();
     /* for each touch, check if it's inside a button 
     and send the release message for that button */
     for (const touch of event.changedTouches) {
