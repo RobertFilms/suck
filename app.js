@@ -81,7 +81,7 @@ setInterval(() => {
 wss.on('connection', (ws) => {
     ws.id = uuidv4();
     ws.send(JSON.stringify({ id: ws.id }));
-    console.log('Client connected: ' + ws.id);
+    console.log(`Client connected, ${new Date()}: ${ws.id}`);
     // add blob to game with ws's id as the blob id
     game.blobs.push(new GameCode.Player(Math.random() * game.gameWidth, Math.random() * game.gameHeight, 20, ws.id, "player"));
 
@@ -105,7 +105,7 @@ wss.on('connection', (ws) => {
     });
     // listen for disconnects
     ws.on('close', () => {
-        console.log('Client disconnected: ' + ws.id);
+        console.log(`Client disconnected, ${new Date()}: ${ws.id}`);
         //remove blob from game by ws's id
         game.blobs = game.blobs.filter(b => b.id !== ws.id);
     });
