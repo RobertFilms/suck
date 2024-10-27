@@ -206,6 +206,22 @@ class Player extends Blob {
         // Generate a random color for the blob
         this.color = "#" + Math.floor(Math.random() * 16777215).toString(16);
         this.name = this.makeName();
+        this.vision = {
+            width: 0,
+            height: 0,
+            multi: 1
+        }
+    }
+
+    canSee(blob) {
+        // compare this to the camera's target x and y
+        let compareX = blob.x - this.x;
+        let compareY = blob.y - this.y;
+        this.vision.multi = (this.vision.width / 16) / this.r;
+        // if this compare is greater than half the size of the screen plus this r times the camera multiplier, don't draw it
+        if (Math.abs(compareX * this.vision.multi) > (this.vision.width / 2) + (this.r * 2 * this.vision.multi)) return false;
+        if (Math.abs(compareY * this.vision.multi) > (this.vision.height / 2) + (this.r * 2 * this.vision.multi)) return false;
+        return true;
     }
 
     // Player will move based on keypresses abd momentum

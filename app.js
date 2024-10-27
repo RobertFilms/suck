@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 // import custome GameCode
 const GameCode = require('./GameCode.js');
+const { log } = require('console');
 
 // load the port from the environment variables
 const PORT = process.env.PORT || 3000;
@@ -54,27 +55,64 @@ const game = new GameCode.Game();
 
 // Run the game loop and send updates every tick interval
 setInterval(() => {
-    game.numPlayers = wss.clients.size;
-    game.step();
-    // pack all blobs into an update message and send to all clients
-    let update = [];
-    for (const blob of game.blobs) {
-        update.push(blob.pack());
-    }
-    wss.clients.forEach((client) => {
-        client.send(JSON.stringify({ update: game.blobs }));
-    });
-    // if the game updated the stats, update the database
-    if (game.updateDB) {
-        db.run(`UPDATE general SET top_score = ?, top_name = ?, top_uid = ? WHERE uid = 1 ;`, [game.stats.top_score, game.stats.top_name, game.stats.top_uid], (err) => {
-            game.updateDB = false;
-            if (err) {
-                console.error(err.message);
-            } else {
-                console.log('Updated stats in database.');
+    //No need to advance the game if there are no players
+    if (wss.clients.size) {
+
+        // update the number of players in the game object
+        game.numPlayers = wss.clients.size;
+
+        // update the game state
+        game.step();
+
+        // pack all blobs into an update message and send to all clients
+        let update = [];
+        for (const blob of game.blobs) {
+            update.push(blob.pack());
+        }
+
+        // send the update message to each client
+        for (const client of wss.clients) {
+            // find the blobs that are players
+            let players = game.blobs.filter(b => b.type == "player");
+            // find the client's blob
+            let player = players.find(b => b.id == client.id);
+            let nearbyBlobs = [];
+            if (player) {
+                // find nearby blobs by filtering blob list with the player's canSee method
+                nearbyBlobs = game.blobs.filter(b => player.canSee(b)).map(b => b.pack());
             }
-        });
+            //search blobs for number of players
+            let numPlayers = players.filter(b => b.type == "player").length;
+            // the player with the highest r
+            let biggestBlob = players.reduce((a, b) => a.r > b.r ? a : b, { r: 1, name: "Bob Jenkins", fbid: 0 });
+
+            // send the update message to the client
+            client.send(JSON.stringify({
+                update: {
+                    player: player, //Send the player's blob if it exists
+                    nearbyBlobs: nearbyBlobs,
+                    status: {
+                        numPlayers: numPlayers,
+                        top_score: biggestBlob.r || 1,
+                        top_name: biggestBlob.name || "Bob Jenkins",
+                        top_uid: biggestBlob.fbid || 0
+                    }
+                }
+            }));
+        }
+        // if the game updated the stats, update the database
+        if (game.updateDB) {
+            db.run(`UPDATE general SET top_score = ?, top_name = ?, top_uid = ? WHERE uid = 1 ;`, [game.stats.top_score, game.stats.top_name, game.stats.top_uid], (err) => {
+                game.updateDB = false;
+                if (err) {
+                    console.error(err.message);
+                } else {
+                    console.log('Updated stats in database.');
+                }
+            });
+        }
     }
+
 }, game.tickSpeed);
 
 // Listen for WS connections
@@ -102,7 +140,16 @@ wss.on('connection', (ws) => {
                 player[message.release] = false;
             }
         }
+
+        if (message.resize) {
+            // find blob with this ws id
+            let player = game.blobs.find(b => b.id == ws.id);
+            if (player) {
+                player.vision = message.resize;
+            }
+        }
     });
+
     // listen for disconnects
     ws.on('close', () => {
         console.log(`Client disconnected, ${new Date()}: ${ws.id}`);

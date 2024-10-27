@@ -13,15 +13,16 @@ ws.onopen = () => {
 
 // listen for messages from server
 ws.onmessage = (message) => {
-    // console.log('Received: ' + message.data);
     message = JSON.parse(message.data);
+
     // See if you're receiving your ID
     if (message.id) {
         ws.id = message.id;
+        ws.send(JSON.stringify({ resize: { width: canvas.width, height: canvas.height } }));
     }
     //See if this is an update message
     if (message.update && !gameState) {
-        let player = message.update.find(b => b.id == ws.id);
+        let player = message.update.player;
         if (!player) {
             gameState = Date.now();
             // listen for clicks
@@ -31,20 +32,14 @@ ws.onmessage = (message) => {
             });
         } else {
             camera.target = player;
-            camera.multiplier = (canvas.width / 16) / player.r;
-        }
-        // Reset the blobs array
-        blobs = [];
-        biggest = { size: 0, name: "" };
-        numPlayers = 0;
-        // Add each blob from the message to the blobs array
-        for (const blob of message.update) {
-            blobs.push(new Blob(blob.x, blob.y, blob.r, blob.id, blob.type, blob.name));
-            this.blobs[this.blobs.length - 1].color = blob.color;
-            if (blob.type === "player") numPlayers++;
-            if (blob.r > biggest.size && blob.name) {
-                biggest.size = blob.r;
-                biggest.name = blob.name;
+            // Update the status
+            gameStatus = message.update.status;
+            // Reset the blobs array
+            blobs = [];
+            // Add each blob from the message to the blobs array
+            for (const blob of message.update.nearbyBlobs) {
+                blobs.push(new Blob(blob.x, blob.y, blob.r, blob.id, blob.type, blob.name));
+                this.blobs[this.blobs.length - 1].color = blob.color;
             }
         }
     }
@@ -74,13 +69,15 @@ class Blob {
         let compareX = this.x - camera.target.x;
         let compareY = this.y - camera.target.y;
         // if this compare is greater than half the size of the screen plus this r times the camera multiplier, don't draw it
+        // console.log(compareX, canvas.width, this.r, camera.multiplier);
+
         if (Math.abs(compareX * camera.multiplier) > (canvas.width / 2) + (this.r * 2 * camera.multiplier)) return 0;
         if (Math.abs(compareY * camera.multiplier) > (canvas.height / 2) + (this.r * 2 * camera.multiplier)) return 0;
         // draw a circle with this blob's color
         ctx.beginPath();
         ctx.arc(
-            camera.width / 2 + (compareX * camera.multiplier),
-            camera.height / 2 + (compareY * camera.multiplier),
+            canvas.width / 2 + (compareX * camera.multiplier),
+            canvas.height / 2 + (compareY * camera.multiplier),
             this.r * camera.multiplier,
             0, 2 * Math.PI);
         ctx.fillStyle = this.color;
@@ -92,8 +89,8 @@ class Blob {
             ctx.fillStyle = 'black';
             ctx.fillText(
                 this.name,
-                camera.width / 2 + (compareX * camera.multiplier) - (ctx.measureText(this.name).width / 2),
-                camera.height / 2 + (compareY * camera.multiplier) - (this.r * camera.multiplier) - 10
+                canvas.width / 2 + (compareX * camera.multiplier) - (ctx.measureText(this.name).width / 2),
+                canvas.height / 2 + (compareY * camera.multiplier) - (this.r * camera.multiplier) - 10
             );
         }
         return 1;
@@ -110,16 +107,20 @@ class touchUI {
 
     draw() {
         if (this.visible) {
+            // draw red circle at start touch
+            ctx.beginPath();
+            ctx.arc(this.touch.sx, this.touch.sy, 10, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
             //draw a blue line from the start touch to the end touch
             ctx.beginPath();
             ctx.moveTo(this.touch.sx, this.touch.sy);
             ctx.lineTo(this.touch.ex, this.touch.ey);
-            ctx.strokeStyle = 'blue';
-            ctx.lineWidth = 5;
+            ctx.strokeStyle = 'green';
+            ctx.lineWidth = 2;
             ctx.stroke();
         }
     }
-
 }
 
 // Set the game over state
@@ -128,11 +129,8 @@ gameState = 0;
 // Create an array of blobs
 var blobs = [];
 
-// biggest blob
-var biggest = { size: 0, name: "" };
-
-// number of players
-var numPlayers = 0;
+// Create a variable to hold the status
+var gameStatus = { numPlayers: 0, top_score: 0, top_name: "", top_uid: "" };
 
 var ui = new touchUI();
 
@@ -146,10 +144,15 @@ canvas.addEventListener('contextmenu', function (event) {
 }, false);
 
 var camera = {
-    target: null,
+    target: {
+        x: 0,
+        y: 0,
+        r: 20
+    },
     multiplier: 1,
-    width: canvas.width,
-    height: canvas.height,
+    lastWidth: 0,
+    lastHeight: 0,
+    lastR: 0,
 }
 
 // This is the game loop
@@ -159,9 +162,14 @@ function step() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // Set the game width and height to the screen size
-    camera.width = window.innerWidth;
-    camera.height = window.innerHeight;
+    //if not equal to the last width or height, update the camera multiplier
+    if (canvas.width != camera.lastWidth || canvas.height != camera.lastHeight || camera.target.r != camera.lastR) {
+        camera.multiplier = (canvas.width / 16) / camera.target.r;
+        camera.lastWidth = canvas.width;
+        camera.lastHeight = canvas.height;
+        if (ws.id)
+            ws.send(JSON.stringify({ resize: { width: canvas.width, height: canvas.height } }));
+    }
 
     // If the game is over, show the game over text
     if (gameState) {
@@ -185,19 +193,18 @@ function step() {
         // Clear the canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        let count = 0;
         // Move and draw each blob
         for (const blob of blobs) {
-            count += blob.draw();
+            blob.draw();
         }
         // draw name of biggest blob in top left of screen
         ctx.font = '20px BubbleGums';
         ctx.fillStyle = 'black';
-        ctx.fillText(biggest.name + " is the biggest suck", camera.width / 2 - (ctx.measureText(biggest.name + " is the biggest suck").width / 2), 30);
+        ctx.fillText(`${gameStatus.top_name} is the biggest suck`, canvas.width / 2 - (ctx.measureText(gameStatus.top_name + " is the biggest suck").width / 2), 30);
         // draw number of players below that
-        ctx.fillText(numPlayers + " players are trying to suck", camera.width / 2 - (ctx.measureText(numPlayers + " players are trying to suck").width / 2), 60);
+        ctx.fillText(`${gameStatus.numPlayers} players are trying to suck`, canvas.width / 2 - (ctx.measureText(`${gameStatus.numPlayers} players are trying to suck`).width / 2), 60);
         // draw camera's target's r in bottom left of screen
-        if (camera.target) ctx.fillText("your suck size is " + parseInt(camera.target.r), camera.width / 2 - (ctx.measureText("your suck size is " + parseInt(camera.target.r)).width / 2), 90);
+        if (camera.target) ctx.fillText("your suck size is " + parseInt(camera.target.r), canvas.width / 2 - (ctx.measureText("your suck size is " + parseInt(camera.target.r)).width / 2), 90);
         // try to draw the touch ui
         ui.draw();
         // Call the next frame
@@ -267,17 +274,18 @@ document.addEventListener('keyup', (event) => {
 //listen for touches
 document.addEventListener('touchstart', (event) => {
     event.preventDefault(); // Prevent default touch behaviors
-    if (camera.target.r == 20) ui.visible = true;
+    ui.visible = true;
     if (gameState) location.reload();
     // get the touch coordinates and save to the ui object touch property
     ui.touch.sx = event.touches[0].clientX;
     ui.touch.sy = event.touches[0].clientY;
+    ui.touch.ex = event.touches[0].clientX;
+    ui.touch.ey = event.touches[0].clientY;
 }, { passive: false });
 
 //listen for touch changes
 document.addEventListener('touchmove', (event) => {
     event.preventDefault();
-    if (camera.target.r != 20) ui.visible = false;
     // get the touch coordinates and save to the ui object touch property
     ui.touch.ex = event.touches[0].clientX;
     ui.touch.ey = event.touches[0].clientY;
@@ -305,7 +313,6 @@ document.addEventListener('touchmove', (event) => {
     if (Math.abs(y) > ui.deadZone) {
         //if the UI hadn't already pressed the key, send a press message
         if (!ui.pressed[y > 0 ? 'down' : 'up']) {
-            console.log('pressed', y > 0 ? 'down' : 'up');
             ws.send(JSON.stringify({ press: y > 0 ? 'down' : 'up' }));
         }
         // update the pressed property of the ui so it doesn't send another press message
@@ -314,7 +321,6 @@ document.addEventListener('touchmove', (event) => {
     } else {
         // if the user isn't pressing far enough but hasn't untouched, send a release message
         if (ui.pressed[y < 0 ? 'down' : 'up']) {
-            console.log('released', y < 0 ? 'down' : 'up');
             ws.send(JSON.stringify({ release: y < 0 ? 'down' : 'up' }));
         }
         // update the pressed property of the ui so it doesn't send another release message
@@ -329,8 +335,12 @@ document.addEventListener('touchend', (event) => {
     if (event.touches.length === 0) {
         ui.visible = false;
         ws.send(JSON.stringify({ release: 'up' }));
+        ui.pressed.up = false;
         ws.send(JSON.stringify({ release: 'down' }));
+        ui.pressed.down = false;
         ws.send(JSON.stringify({ release: 'right' }));
+        ui.pressed.right = false;
         ws.send(JSON.stringify({ release: 'left' }));
+        ui.pressed.left = false;
     }
 }, { passive: false });
