@@ -300,6 +300,7 @@ document.addEventListener('keyup', (event) => {
 document.addEventListener('touchstart', (event) => {
     event.preventDefault(); // Prevent default touch behaviors
     ui.visible = true;
+    if (gameState) location.reload();
     /* for each touch, check if it's inside a button 
     and send the press message for that button */
     for (const touch of event.touches) {
