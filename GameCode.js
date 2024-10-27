@@ -12,6 +12,14 @@ class Game {
         this.baddyChance = 0.3;
         this.maxSize = 50;
         this.numPlayers = 0;
+        this.updateDB = false;
+        this.stats = {
+            top_score: 0,
+            top_name: "",
+            top_uid: 0,
+            hits_home: 0,
+            hits_game: 0
+        }
 
         for (let i = 0; i < this.blobLimit; i++) {
             let type = Math.random() > this.baddyChance ? "blob" : "baddy";
@@ -49,14 +57,10 @@ class Game {
                 this.blobCounter++,
                 type);
             for (const blob of this.blobs) {
-                if (blob.r > this.stats.top_score) {
-                    this.stats.top_score = blob.r;
-                    this.stats.top_name = blob.name;
-                    this.stats.top_uid = blob.name || 0;
-                }
+                //If the blob would spawn into another blob, set it to null
                 if (blob.containsBlob(tempBlob)) {
                     tempBlob = null;
-                    break;
+                    break; // no need to continue checking if at least one blob was found
                 }
             }
             if (tempBlob) {
@@ -73,10 +77,19 @@ class Game {
                 this.blobs = this.blobs.filter(b => b.id !== blob.id);
             }
 
+            // If the blob is larger than the top score, set the top score to the blob's size
+            if (blob.r > this.stats.top_score) {
+                this.stats.top_score = blob.r;
+                this.stats.top_name = blob.name || "Bob Jenkins";
+                this.stats.top_uid = blob.name || 0;
+                // set the updateDB flag to true
+                this.updateDB = true;
+            }
+
             // move the blob
             blob.move(this.gameWidth, this.gameHeight);
 
-            // check if thhe blob is colliding with another blob
+            // check if the blob is colliding with another blob
             for (const cblob of this.blobs) {
                 // if the blob contains another blob and they are both alive
                 if (blob.containsBlob(cblob) && blob.alive && cblob.alive) {

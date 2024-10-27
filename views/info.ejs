@@ -20,17 +20,46 @@
       background-color: #f0f0f0;
       text-align: center;
     }
+
+    a {
+      text-decoration: none;
+      font-weight: bold;
+      color: black;
+      text-shadow: #00FF00 1px 1px;
+    }
+
+    a:hover {
+      text-shadow: #FF0000 1px 1px;
+    }
+
+    li {
+      list-style-type: none;
+    }
   </style>
 </head>
 
 <body>
   <h1>Suckario</h1>
   <p>This game sucks.</p>
+  <p><a href="/game">Click here to play</a></p>
   <h2>What is Suckario?</h2>
   <p>Suckario is basically agar.io except it sucks.</p>
-  <p>You are a blob. Suck up smaller blobs to get bigger. Don't get sucked.</p>
-  <p>There are currently <b><%- numPlayers %></b> currently sucking.</p>
-  <p><a href="/game">Click here to play</a></p>
+  <ul>
+    <li>
+      You are a suck.
+    </li>
+    <li>
+      Suck up smaller sucks to become bigger suck.
+    </li>
+    <li>
+      Don't get sucked.
+    </li>
+  </ul>
+  <p>There are <b><%- numPlayers %></b> sucks currently sucking.</p>
+  <h3>The Best Suck</h3>
+  <p><b><%- game.top_name %></b> was the biggest suck of all time. ( <b><%- game.top_score %></b> )</p>
+  <p>People have attempted to be the biggest suck <b><%- game.hits_game %></b> times.</p>
+  <p><b><%- game.hits_home %></b> people have read this sentence.</p>
 </body>
 
 </html>

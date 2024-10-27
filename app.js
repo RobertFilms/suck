@@ -20,13 +20,28 @@ app.use(express.static(__dirname + '/public'));
 
 // Define a route handler for the default home page
 app.get('/', (req, res) => {
-    res.render('info', { numPlayers: wss.clients.size });
+    res.render('info', { numPlayers: wss.clients.size, game: game.stats });
+    // add 1 to the hits_home column in the database
+    db.run(`UPDATE general SET hits_home = hits_home + 1 WHERE uid = 1 ;`, (err) => {
+        if (err) {
+            console.error(err.message);
+        } else {
+            game.stats.hits_home++;
+        }
+    });
 });
 
 // game page
 app.get('/game', (req, res) => {
-    console.log('home page');
     res.render('game');
+    // add 1 to the hits_game column in the database
+    db.run(`UPDATE general SET hits_game = hits_game + 1 WHERE uid = 1 ;`, (err) => {
+        if (err) {
+            console.error(err.message);
+        } else {
+            game.stats.hits_game++;
+        }
+    });
 });
 
 // create a new game instance
@@ -44,6 +59,17 @@ setInterval(() => {
     wss.clients.forEach((client) => {
         client.send(JSON.stringify({ update: game.blobs }));
     });
+    // if the game updated the stats, update the database
+    if (game.updateDB) {
+        db.run(`UPDATE general SET top_score = ?, top_name = ?, top_uid = ? WHERE uid = 1 ;`, [game.stats.top_score, game.stats.top_name, game.stats.top_uid], (err) => {
+            game.updateDB = false;
+            if (err) {
+                console.error(err.message);
+            } else {
+                console.log('Updated stats in database.');
+            }
+        });
+    }
 }, game.tickSpeed);
 
 // Listen for WS connections

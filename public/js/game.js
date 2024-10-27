@@ -20,10 +20,15 @@ ws.onmessage = (message) => {
         ws.id = message.id;
     }
     //See if this is an update message
-    if (message.update) {
+    if (message.update && !gameState) {
         let player = message.update.find(b => b.id == ws.id);
         if (!player) {
-            gameState = "lose";
+            gameState = Date.now();
+            // listen for clicks
+            canvas.addEventListener('click', () => {
+                // reload the page
+                location.reload();
+            });
         } else {
             camera.target = player;
             camera.multiplier = (canvas.width / 16) / player.r;
@@ -132,7 +137,7 @@ class touchUI {
 }
 
 // Set the game over state
-gameState = "";
+gameState = 0;
 
 // Create an array of blobs
 var blobs = [];
@@ -166,13 +171,24 @@ function step() {
     camera.height = window.innerHeight;
 
     // If the game is over, show the game over text
-    if (gameState == "lose") {
+    if (gameState) {
         // show game over text in middle of screen
         ctx.font = '30px BubbleGums';
         ctx.fillStyle = 'red';
-        ctx.fillText('ya got sucked', canvas.width / 2 - 100, canvas.height / 2);
-    }
+        ctx.fillText('ya got sucked', canvas.width / 2 - (ctx.measureText('ya got sucked').width / 2), canvas.height / 2 - 20);
+        //if the current time minus the gameState is greater than 3 seconds, show a link
+        console.log(Date.now() - gameState);
 
+        if (Date.now() - gameState > 2000) {
+            // show link to game in middle of screen
+            ctx.font = '20px BubbleGums';
+            ctx.fillStyle = 'green';
+            ctx.fillText('click to resuck', canvas.width / 2 - (ctx.measureText('click to resuck').width / 2), canvas.height / 2 + 20);
+            // If we end here, it can't request another frame, so it stops the game
+            return;
+        }
+        requestAnimationFrame(step);
+    }
     // Otherwise, keep playing the game
     else {
         // Clear the canvas
