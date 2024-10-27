@@ -154,7 +154,7 @@ class Blob {
         this.travelX = Number((Math.random() * 4 - 2).toFixed(2));
         this.travelY = Number((Math.random() * 4 - 2).toFixed(2));
         this.color = "#FFFFFF";
-        this.name = () => { return "" };
+        this.name = "";
     }
 
     // Each from will move the blob in its travel direction
@@ -271,7 +271,7 @@ class Player extends Blob {
             "stream", "stretch", "stripe", "thicket", "trail", "trench", "veil", "void", "wave",
             "whisper", "wrinkle", "zone"
         ];
-        return this.name = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
+        return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
     }
 
 }
