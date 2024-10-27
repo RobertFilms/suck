@@ -105,7 +105,7 @@ class touchUI {
         this.visible = false;
         this.touch = { sx: 0, sy: 0, ex: 0, ey: 0 };
         this.pressed = { up: false, down: false, left: false, right: false };
-        this.deadZone = 20;
+        this.deadZone = 5;
     }
 
     draw() {
