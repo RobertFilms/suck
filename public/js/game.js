@@ -120,10 +120,10 @@ class touchUI {
                 up, left, right, down on the screen in the top-left, bottom-left, top-right, bottom-right respectively
                 */
                 this.buttons = [
-                    { x: 0, y: 0, w: camera.width / 8, h: camera.height / 2, text: "🢁", press: "up", release: "up" },
-                    { x: 0, y: camera.height / 2, w: camera.width / 8, h: camera.height / 2, text: "🢀", press: "left", release: "left" },
-                    { x: camera.width - camera.width / 8, y: 0, w: camera.width / 8, h: camera.height / 2, text: "🢂", press: "right", release: "right" },
-                    { x: camera.width - camera.width / 8, y: camera.height / 2, w: camera.width / 8, h: camera.height / 2, text: "🢃", press: "down", release: "down" },
+                    { x: 0, y: 0, w: camera.width / 8, h: camera.height / 2, text: "🢁u", press: "up", release: "up" },
+                    { x: 0, y: camera.height / 2, w: camera.width / 8, h: camera.height / 2, text: "🢀l", press: "left", release: "left" },
+                    { x: camera.width - camera.width / 8, y: 0, w: camera.width / 8, h: camera.height / 2, text: "🢂r", press: "right", release: "right" },
+                    { x: camera.width - camera.width / 8, y: camera.height / 2, w: camera.width / 8, h: camera.height / 2, text: "🢃d", press: "down", release: "down" },
                 ]
             } else {
                 /* 
@@ -131,10 +131,10 @@ class touchUI {
                 across the bottom of the screen in left up down right order
                 */
                 this.buttons = [
-                    { x: 0, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢀", press: "left", release: "left" },
-                    { x: camera.width / 4, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢁", press: "up", release: "up" },
-                    { x: camera.width / 2, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢃", press: "down", release: "down" },
-                    { x: camera.width - camera.width / 4, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢂", press: "right", release: "right" },
+                    { x: 0, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢀l", press: "left", release: "left" },
+                    { x: camera.width / 4, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢁u", press: "up", release: "up" },
+                    { x: camera.width / 2, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢃d", press: "down", release: "down" },
+                    { x: camera.width - camera.width / 4, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢂r", press: "right", release: "right" },
                 ]
             }
             // draw each button
