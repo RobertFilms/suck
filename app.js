@@ -5,8 +5,13 @@ const WebSocket = require('ws');
 const sqlite3 = require('sqlite3').verbose();
 // import unique id handler
 const { v4: uuidv4 } = require('uuid');
+// import local environment variables
+require('dotenv').config();
 // import custome GameCode
 const GameCode = require('./GameCode.js');
+
+// load the port from the environment variables
+const PORT = process.env.PORT || 3000;
 
 const app = express();
 const http = require('http').Server(app);
@@ -108,8 +113,8 @@ wss.on('connection', (ws) => {
 
 
 // Start the server on port 3000
-http.listen(3000, () => {
-    console.log('Server started on http://localhost:3000');
+http.listen(PORT, () => {
+    console.log(`Server started on http://localhost:${PORT}`);
 });
 
 // open the database file
