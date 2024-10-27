@@ -103,51 +103,20 @@ class Blob {
 class touchUI {
     constructor() {
         this.visible = false;
-        this.buttons = [
-            { x: 0, y: 0, w: 0, h: 0, text: "up", press: "up", release: "up" },
-            { x: 0, y: 0, w: 0, h: 0, text: "down", press: "down", release: "down" },
-            { x: 0, y: 0, w: 0, h: 0, text: "left", press: "left", release: "left" },
-            { x: 0, y: 0, w: 0, h: 0, text: "right", press: "right", release: "right" },
-        ]
+        this.touch = { sx: 0, sy: 0, ex: 0, ey: 0 };
+        this.pressed = { up: false, down: false, left: false, right: false };
+        this.deadZone = 20;
     }
 
     draw() {
         if (this.visible) {
-            // if camera is wider that it is tall
-            if (camera.width > camera.height) {
-                /* 
-                place four rectanglur buttons, 1/8th the screen width and 1/2 the screen height
-                up, left, right, down on the screen in the top-left, bottom-left, top-right, bottom-right respectively
-                */
-                this.buttons = [
-                    { x: 0, y: 0, w: camera.width / 8, h: camera.height / 2, text: "🢁u", press: "up", release: "up" },
-                    { x: 0, y: camera.height / 2, w: camera.width / 8, h: camera.height / 2, text: "🢀l", press: "left", release: "left" },
-                    { x: camera.width - camera.width / 8, y: 0, w: camera.width / 8, h: camera.height / 2, text: "🢂r", press: "right", release: "right" },
-                    { x: camera.width - camera.width / 8, y: camera.height / 2, w: camera.width / 8, h: camera.height / 2, text: "🢃d", press: "down", release: "down" },
-                ]
-            } else {
-                /* 
-                place four rectanglur buttons, 1/4th the screen width and 1/4 the screen height
-                across the bottom of the screen in left up down right order
-                */
-                this.buttons = [
-                    { x: 0, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢀l", press: "left", release: "left" },
-                    { x: camera.width / 4, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢁u", press: "up", release: "up" },
-                    { x: camera.width / 2, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢃d", press: "down", release: "down" },
-                    { x: camera.width - camera.width / 4, y: camera.height - camera.height / 4, w: camera.width / 4, h: camera.height / 4, text: "🢂r", press: "right", release: "right" },
-                ]
-            }
-            // draw each button
-            for (const button of this.buttons) {
-                ctx.beginPath();
-                ctx.rect(button.x, button.y, button.w, button.h);
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                ctx.fill();
-                ctx.stroke();
-                ctx.font = '20px arial';
-                ctx.fillStyle = 'white';
-                ctx.fillText(button.text, button.x + button.w / 2 - (ctx.measureText(button.text).width / 2), button.y + button.h / 2 + 10);
-            }
+            //draw a blue line from the start touch to the end touch
+            ctx.beginPath();
+            ctx.moveTo(this.touch.sx, this.touch.sy);
+            ctx.lineTo(this.touch.ex, this.touch.ey);
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 5;
+            ctx.stroke();
         }
     }
 
@@ -172,7 +141,7 @@ var canvas = document.getElementById('gameWindow');
 var ctx = canvas.getContext('2d');
 
 // prevent right click context menu
-canvas.addEventListener('contextmenu', function(event) {
+canvas.addEventListener('contextmenu', function (event) {
     event.preventDefault(); // Prevent context menu from appearing
 }, false);
 
@@ -241,7 +210,6 @@ requestAnimationFrame(step);
 
 //listen for keypresses
 document.addEventListener('keydown', (event) => {
-    ui.visible = false;
     switch (event.key) {
         case 'w':
         case 'W':
@@ -299,43 +267,70 @@ document.addEventListener('keyup', (event) => {
 //listen for touches
 document.addEventListener('touchstart', (event) => {
     event.preventDefault(); // Prevent default touch behaviors
-    ui.visible = true;
+    if (camera.target.r == 20) ui.visible = true;
     if (gameState) location.reload();
-    /* for each touch, check if it's inside a button 
-    and send the press message for that button */
-    for (const touch of event.touches) {
-        for (const button of ui.buttons) {
-            if (touch.clientX > button.x && touch.clientX < button.x + button.w && touch.clientY > button.y && touch.clientY < button.y + button.h) {
-                ws.send(JSON.stringify({ press: button.press }));
-            }
-        }
-    }
-});
+    // get the touch coordinates and save to the ui object touch property
+    ui.touch.sx = event.touches[0].clientX;
+    ui.touch.sy = event.touches[0].clientY;
+}, { passive: false });
 
 //listen for touch changes
 document.addEventListener('touchmove', (event) => {
     event.preventDefault();
-    /* for each touch, check if to see if it was inside a button, but moved out 
-    and send the release message for that button */
-    for (const touch of event.changedTouches) {
-        for (const button of ui.buttons) {
-            if (!(touch.clientX > button.x && touch.clientX < button.x + button.w && touch.clientY > button.y && touch.clientY < button.y + button.h)) {
-                ws.send(JSON.stringify({ release: button.release }));
-            }
+    if (camera.target.r != 20) ui.visible = false;
+    // get the touch coordinates and save to the ui object touch property
+    ui.touch.ex = event.touches[0].clientX;
+    ui.touch.ey = event.touches[0].clientY;
+    // calculate the distance between the start and end touch coordinates and normalize  to -1 to 1
+    let x = ui.touch.ex - ui.touch.sx;
+    let y = ui.touch.ey - ui.touch.sy;
+    // if the distance for each axis is greater than the deadzone, press the appropriate key
+    if (Math.abs(x) > ui.deadZone) {
+        //if the UI hadn't already pressed the key, send a press message
+        if (!ui.pressed[x > 0 ? 'right' : 'left']) {
+            ws.send(JSON.stringify({ press: x > 0 ? 'right' : 'left' }));
         }
+        // update the pressed property of the ui so it doesn't send another press message
+        ui.pressed[x < 0 ? 'right' : 'left'] = false;
+        ui.pressed[x > 0 ? 'right' : 'left'] = true;
+    } else {
+        // if the user isn't pressing far enough but hasn't untouched, send a release message
+        if (ui.pressed[x < 0 ? 'right' : 'left']) {
+            ws.send(JSON.stringify({ release: x < 0 ? 'right' : 'left' }));
+        }
+        // update the pressed property of the ui so it doesn't send another release
+        ui.pressed[x < 0 ? 'right' : 'left'] = false;
     }
-});
+    // Up and down
+    if (Math.abs(y) > ui.deadZone) {
+        //if the UI hadn't already pressed the key, send a press message
+        if (!ui.pressed[y > 0 ? 'down' : 'up']) {
+            console.log('pressed', y > 0 ? 'down' : 'up');
+            ws.send(JSON.stringify({ press: y > 0 ? 'down' : 'up' }));
+        }
+        // update the pressed property of the ui so it doesn't send another press message
+        ui.pressed[y < 0 ? 'down' : 'up'] = false;
+        ui.pressed[y > 0 ? 'down' : 'up'] = true;
+    } else {
+        // if the user isn't pressing far enough but hasn't untouched, send a release message
+        if (ui.pressed[y < 0 ? 'down' : 'up']) {
+            console.log('released', y < 0 ? 'down' : 'up');
+            ws.send(JSON.stringify({ release: y < 0 ? 'down' : 'up' }));
+        }
+        // update the pressed property of the ui so it doesn't send another release message
+        ui.pressed[y < 0 ? 'down' : 'up'] = false;
+    }
+}, { passive: false });
 
 //listen for touch ends
 document.addEventListener('touchend', (event) => {
     event.preventDefault();
-    /* for each touch, check if it's inside a button 
-    and send the release message for that button */
-    for (const touch of event.changedTouches) {
-        for (const button of ui.buttons) {
-            if (touch.clientX > button.x && touch.clientX < button.x + button.w && touch.clientY > button.y && touch.clientY < button.y + button.h) {
-                ws.send(JSON.stringify({ release: button.release }));
-            }
-        }
+    // if the touch ends, release all keys
+    if (event.touches.length === 0) {
+        ui.visible = false;
+        ws.send(JSON.stringify({ release: 'up' }));
+        ws.send(JSON.stringify({ release: 'down' }));
+        ws.send(JSON.stringify({ release: 'right' }));
+        ws.send(JSON.stringify({ release: 'left' }));
     }
-});
+}, { passive: false });
