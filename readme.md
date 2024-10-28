@@ -11,6 +11,7 @@ Try a demo: [suck.animetidd.is](http://suck.animetidd.is/)
 - Navigate to folder in shell
 - Run `npm i`
 - Run `node app.js`
+- Copy `data/database_template.db` to `/data/database.db`
 - In browser, go to `http://localhost:3000`
 - Share your IP with friends (they replace `localhost` with your IP)
 - Suck
