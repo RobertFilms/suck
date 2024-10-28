@@ -19,7 +19,7 @@
       font-weight: normal;
       font-style: normal;
     }
-    
+
     body {
       font-family: BubbleGums, Arial, sans-serif;
       margin: 0;
@@ -43,17 +43,28 @@
       list-style-type: none;
     }
   </style>
+  <script>
+    var user = {
+      name: JSON.stringify(<%= user.name %>),
+      fbid: <%= user.fbid %>
+    }
+  </script>
 </head>
 
 <body>
   <h1>suck</h1>
   <p>This game sucks.</p>
   <p><a href="/game">Click here to play</a></p>
+  <% if (user.name) { %>
+    <p>Welcome back, <%- user.name %></p>
+  <% } else { %>
+    <p><a href="/login">or log in first</a></p>
+  <% } %>
   <h2>What is suck?</h2>
   <p>suck is basically agar.io, except it sucks.</p>
   <ul>
     <li>
-      You are a suck.
+        You are a suck.
     </li>
     <li>
       Suck up smaller sucks to become bigger suck.

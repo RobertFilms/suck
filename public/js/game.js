@@ -19,6 +19,8 @@ ws.onmessage = (message) => {
     if (message.id) {
         ws.id = message.id;
         ws.send(JSON.stringify({ resize: { width: canvas.width, height: canvas.height } }));
+        if (user.name)
+            ws.send(JSON.stringify({ realID: { name: user.name, fbid: user.fbid } }));
     }
     //See if this is an update message
     if (message.update && !gameState) {

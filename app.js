@@ -1,5 +1,7 @@
 // Start an express server with websockets without socket.io
 const express = require('express');
+// import express session module
+const session = require('express-session');
 const WebSocket = require('ws');
 // import sqlite3 database module
 const sqlite3 = require('sqlite3').verbose();
@@ -7,12 +9,22 @@ const sqlite3 = require('sqlite3').verbose();
 const { v4: uuidv4 } = require('uuid');
 // import local environment variables
 require('dotenv').config();
+// import webtoken module
+const jwt = require('jsonwebtoken');
+// make a little shortcut for log()
+const { log } = require('console');
 // import custome GameCode
 const GameCode = require('./GameCode.js');
-const { log } = require('console');
 
 // load the port from the environment variables
+// The port to run this on
 const PORT = process.env.PORT || 3000;
+// The URL for the Formbar authentication server
+const AUTH_URL = process.env.AUTH_URL || 'http://localhost:420/oauth';
+// The URL for this server for the oauth callback
+const THIS_URL = process.env.THIS_URL || 'http://localhost:3000/login';
+// The secret for the session data
+const FB_SECRET = process.env.FB_SECRET || 'secret';
 
 const app = express();
 const http = require('http').Server(app);
@@ -24,9 +36,24 @@ app.set('view engine', 'ejs');
 // set express to use public for static files
 app.use(express.static(__dirname + '/public'));
 
+// use express session handler
+app.use(session({
+    secret: FB_SECRET,
+    resave: false,
+    saveUninitialized: false
+}))
+
+// This function is used to intercept page loads to check if the user is authenticated
+function isAuthenticated(req, res, next) {
+    if (req.session.user) next()
+    else res.redirect('/login')
+};
+
 // Define a route handler for the default home page
 app.get('/', (req, res) => {
-    res.render('info', { numPlayers: wss.clients.size, game: game.stats });
+    let user = { name: "", fbid: 0 };
+    if (req.session.user) user = req.session.user;
+    res.render('info', { numPlayers: wss.clients.size, game: game.stats, user: user });
     // add 1 to the hits_home column in the database
     db.run(`UPDATE general SET hits_home = hits_home + 1 WHERE uid = 1 ;`, (err) => {
         if (err) {
@@ -39,7 +66,9 @@ app.get('/', (req, res) => {
 
 // game page
 app.get('/game', (req, res) => {
-    res.render('game');
+    let user = { name: "", fbid: 0 };
+    if (req.session.user) user = req.session.user;
+    res.render('game', { user: user });
     // add 1 to the hits_game column in the database
     db.run(`UPDATE general SET hits_game = hits_game + 1 WHERE uid = 1 ;`, (err) => {
         if (err) {
@@ -48,6 +77,18 @@ app.get('/game', (req, res) => {
             game.stats.hits_game++;
         }
     });
+});
+
+// login page
+app.get('/login', (req, res) => {
+    if (req.query.token) {
+        let tokenData = jwt.decode(req.query.token);
+        req.session.token = tokenData;
+        req.session.user = { name: tokenData.username, fbid: tokenData.id };
+        res.redirect('/');
+    } else {
+        res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`);
+    };
 });
 
 // create a new game instance
@@ -107,7 +148,7 @@ setInterval(() => {
                 if (err) {
                     console.error(err.message);
                 } else {
-                    console.log('Updated stats in database.');
+                    log('Updated stats in database.');
                 }
             });
         }
@@ -119,7 +160,7 @@ setInterval(() => {
 wss.on('connection', (ws) => {
     ws.id = uuidv4();
     ws.send(JSON.stringify({ id: ws.id }));
-    console.log(`Client connected, ${new Date()}: ${ws.id}`);
+    log(`Client connected, ${new Date()}: ${ws.id}`);
     // add blob to game with ws's id as the blob id
     game.blobs.push(new GameCode.Player(Math.random() * game.gameWidth, Math.random() * game.gameHeight, 20, ws.id, "player"));
 
@@ -148,11 +189,20 @@ wss.on('connection', (ws) => {
                 player.vision = message.resize;
             }
         }
+
+        if (message.realID) {
+            // find blob with this ws id
+            let player = game.blobs.find(b => b.id == ws.id);
+            if (player) {
+                player.name = message.realID.name;
+                player.fbid = message.realID.fbid;
+            }
+        }
     });
 
     // listen for disconnects
     ws.on('close', () => {
-        console.log(`Client disconnected, ${new Date()}: ${ws.id}`);
+        log(`Client disconnected, ${new Date()}: ${ws.id}`);
         //remove blob from game by ws's id
         game.blobs = game.blobs.filter(b => b.id !== ws.id);
     });
@@ -161,7 +211,7 @@ wss.on('connection', (ws) => {
 
 // Start the server on port 3000
 http.listen(PORT, () => {
-    console.log(`Server started on http://localhost:${PORT}`);
+    log(`Server started on http://localhost:${PORT}`);
 });
 
 // open the database file
@@ -169,12 +219,12 @@ let db = new sqlite3.Database('data/database.db', (err) => {
     if (err) {
         console.error(err.message);
     }
-    console.log('Connected to the database.');
+    log('Connected to the database.');
     db.get('SELECT * FROM general', (err, row) => {
         if (err) {
             console.error(err.message);
         } else if (row) {
-            console.log(row);
+            log(row);
             // Save the row to the game object
             game.stats = row;
         }
