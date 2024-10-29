@@ -2,6 +2,7 @@
 let host = window.location.href.replace("http", "ws");
 if (host.includes("wss")) host = host.replace("wss", "ws");
 host = host.replace("game", "");
+host += 'game';
 
 // open a ws connection to server
 const ws = new WebSocket(host);
@@ -19,8 +20,6 @@ ws.onmessage = (message) => {
     if (message.id) {
         ws.id = message.id;
         ws.send(JSON.stringify({ resize: { width: canvas.width, height: canvas.height } }));
-        if (user.name)
-            ws.send(JSON.stringify({ realID: { name: user.name, fbid: user.fbid } }));
     }
     //See if this is an update message
     if (message.update && !gameState) {
@@ -71,8 +70,6 @@ class Blob {
         let compareX = this.x - camera.target.x;
         let compareY = this.y - camera.target.y;
         // if this compare is greater than half the size of the screen plus this r times the camera multiplier, don't draw it
-        // console.log(compareX, canvas.width, this.r, camera.multiplier);
-
         if (Math.abs(compareX * camera.multiplier) > (canvas.width / 2) + (this.r * 2 * camera.multiplier)) return 0;
         if (Math.abs(compareY * camera.multiplier) > (canvas.height / 2) + (this.r * 2 * camera.multiplier)) return 0;
         // draw a circle with this blob's color
@@ -164,11 +161,14 @@ function step() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
+
+
     //if not equal to the last width or height, update the camera multiplier
     if (canvas.width != camera.lastWidth || canvas.height != camera.lastHeight || camera.target.r != camera.lastR) {
         camera.multiplier = (canvas.width / 16) / camera.target.r;
         camera.lastWidth = canvas.width;
         camera.lastHeight = canvas.height;
+        camera.lastR = camera.target.r;
         if (ws.id)
             ws.send(JSON.stringify({ resize: { width: canvas.width, height: canvas.height } }));
     }
@@ -219,29 +219,31 @@ requestAnimationFrame(step);
 
 //listen for keypresses
 document.addEventListener('keydown', (event) => {
-    switch (event.key) {
-        case 'w':
-        case 'W':
-        case 'ArrowUp':
-            ws.send(JSON.stringify({ press: 'up' }));
-            break;
-        case 's':
-        case 'S':
-        case 'ArrowDown':
-            ws.send(JSON.stringify({ press: 'down' }));
-            break;
-        case 'a':
-        case 'A':
-        case 'ArrowLeft':
-            ws.send(JSON.stringify({ press: 'left' }));
-            break;
-        case 'd':
-        case 'D':
-        case 'ArrowRight':
-            ws.send(JSON.stringify({ press: 'right' }));
-            break;
-        default:
-            break;
+    if (!event.repeat) {
+        switch (event.key) {
+            case 'w':
+            case 'W':
+            case 'ArrowUp':
+                ws.send(JSON.stringify({ press: 'up' }));
+                break;
+            case 's':
+            case 'S':
+            case 'ArrowDown':
+                ws.send(JSON.stringify({ press: 'down' }));
+                break;
+            case 'a':
+            case 'A':
+            case 'ArrowLeft':
+                ws.send(JSON.stringify({ press: 'left' }));
+                break;
+            case 'd':
+            case 'D':
+            case 'ArrowRight':
+                ws.send(JSON.stringify({ press: 'right' }));
+                break;
+            default:
+                break;
+        }
     }
 });
 

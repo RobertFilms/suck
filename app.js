@@ -2,7 +2,10 @@
 const express = require('express');
 // import express session module
 const session = require('express-session');
+// import the websockets module
 const WebSocket = require('ws');
+// import the express-ws module
+const expressWs = require('express-ws')
 // import sqlite3 database module
 const sqlite3 = require('sqlite3').verbose();
 // import unique id handler
@@ -27,8 +30,6 @@ const THIS_URL = process.env.THIS_URL || 'http://localhost:3000/login';
 const FB_SECRET = process.env.FB_SECRET || 'secret';
 
 const app = express();
-const http = require('http').Server(app);
-const wss = new WebSocket.Server({ server: http });
 
 // set the express view engine to ejs
 app.set('view engine', 'ejs');
@@ -36,12 +37,18 @@ app.set('view engine', 'ejs');
 // set express to use public for static files
 app.use(express.static(__dirname + '/public'));
 
-// use express session handler
-app.use(session({
-    secret: FB_SECRET,
+// create a session middleware with a secret key
+const sessionMiddleware = session({
+    secret: 'your-secret-key',
     resave: false,
-    saveUninitialized: false
-}))
+    saveUninitialized: true,
+    // Add a store if needed, like Redis for scalability
+});
+// use the session middleware in express
+app.use(sessionMiddleware);
+
+// use the express-ws module to add websockets to express
+expressWs(app);
 
 // This function is used to intercept page loads to check if the user is authenticated
 function isAuthenticated(req, res, next) {
@@ -53,7 +60,7 @@ function isAuthenticated(req, res, next) {
 app.get('/', (req, res) => {
     let user = { name: "", fbid: 0 };
     if (req.session.user) user = req.session.user;
-    res.render('info', { numPlayers: wss.clients.size, game: game.stats, user: user });
+    res.render('info', { numPlayers: clients.length, game: game.stats, user: user });
     // add 1 to the hits_home column in the database
     db.run(`UPDATE general SET hits_home = hits_home + 1 WHERE uid = 1 ;`, (err) => {
         if (err) {
@@ -94,13 +101,16 @@ app.get('/login', (req, res) => {
 // create a new game instance
 const game = new GameCode.Game();
 
+// create a client list
+var clients = [];
+
 // Run the game loop and send updates every tick interval
 setInterval(() => {
     //No need to advance the game if there are no players
-    if (wss.clients.size) {
+    if (clients.length) {
 
         // update the number of players in the game object
-        game.numPlayers = wss.clients.size;
+        game.numPlayers = clients.length;
 
         // update the game state
         game.step();
@@ -112,7 +122,7 @@ setInterval(() => {
         }
 
         // send the update message to each client
-        for (const client of wss.clients) {
+        for (const client of clients) {
             // find the blobs that are players
             let players = game.blobs.filter(b => b.type == "player");
             // find the client's blob
@@ -156,14 +166,23 @@ setInterval(() => {
 
 }, game.tickSpeed);
 
-// Listen for WS connections
-wss.on('connection', (ws) => {
+app.ws('/game', (ws, req) => {
+    // add a unique id to the ws object
     ws.id = uuidv4();
+    
+    // add client to list
+    clients.push(ws);
+
     ws.send(JSON.stringify({ id: ws.id }));
     log(`Client connected, ${new Date()}: ${ws.id}`);
     // add blob to game with ws's id as the blob id
     game.blobs.push(new GameCode.Player(Math.random() * game.gameWidth, Math.random() * game.gameHeight, 20, ws.id, "player"));
-
+    // add the session user to the ws object and update the blob that was jsut created
+    if (req.session.user) {
+        ws.user = req.session.user;
+        game.blobs[game.blobs.length - 1].name = req.session.user.name;
+    }
+    
     ws.on('message', (message) => {
         message = JSON.parse(message);
         if (message.press) {
@@ -173,7 +192,8 @@ wss.on('connection', (ws) => {
                 player[message.press] = true;
             }
         }
-
+        
+        
         if (message.release) {
             // find blob with this ws id
             let player = game.blobs.find(b => b.id == ws.id);
@@ -190,14 +210,6 @@ wss.on('connection', (ws) => {
             }
         }
 
-        if (message.realID) {
-            // find blob with this ws id
-            let player = game.blobs.find(b => b.id == ws.id);
-            if (player) {
-                player.name = message.realID.name;
-                player.fbid = message.realID.fbid;
-            }
-        }
     });
 
     // listen for disconnects
@@ -205,12 +217,13 @@ wss.on('connection', (ws) => {
         log(`Client disconnected, ${new Date()}: ${ws.id}`);
         //remove blob from game by ws's id
         game.blobs = game.blobs.filter(b => b.id !== ws.id);
+        //remove client from list
+        clients = clients.filter(c => c !== ws);
     });
 });
 
-
 // Start the server on port 3000
-http.listen(PORT, () => {
+app.listen(PORT, () => {
     log(`Server started on http://localhost:${PORT}`);
 });
 
