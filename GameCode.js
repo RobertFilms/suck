@@ -93,8 +93,6 @@ class Game {
             // if the blob is a player and is larger than the top score, set the top score to the blob's size
             if (blob.type === "player") {
                 if (blob.r > blob.top_score) {
-                    console.log(`Updating ${blob.name}'s score in the database.`);
-                    
                     // update the database
                     db.run(`UPDATE users SET top_score = ? WHERE fb_id = ? ;`, [blob.r, blob.fbid], (err) => {
                         if (err) {
