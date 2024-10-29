@@ -1,3 +1,7 @@
+// import and load the database
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database('data/database.db');
+
 // Create a game class that will hold the game state
 class Game {
     constructor() {
@@ -84,6 +88,23 @@ class Game {
                 this.stats.top_uid = blob.name || 0;
                 // set the updateDB flag to true
                 this.updateDB = true;
+            }
+
+            // if the blob is a player and is larger than the top score, set the top score to the blob's size
+            if (blob.type === "player") {
+                if (blob.r > blob.top_score) {
+                    console.log(`Updating ${blob.name}'s score in the database.`);
+                    
+                    // update the database
+                    db.run(`UPDATE users SET top_score = ? WHERE fb_id = ? ;`, [blob.r, blob.fbid], (err) => {
+                        if (err) {
+                            console.error(err.message);
+                        } else {
+                            console.log(`Updated ${blob.name}'s score in the database.`);
+                        }
+                    });
+                    blob.top_score = blob.r;
+                }
             }
 
             // move the blob

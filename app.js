@@ -59,8 +59,31 @@ function isAuthenticated(req, res, next) {
 // Define a route handler for the default home page
 app.get('/', (req, res) => {
     let user = { name: "", fbid: 0 };
-    if (req.session.user) user = req.session.user;
-    res.render('info', { numPlayers: clients.length, game: game.stats, user: user });
+    if (req.session.user) {
+        user = req.session.user
+        user.top_score = 0;
+        // get the user from the database
+        db.get(`SELECT * FROM users WHERE fb_id = ? ;`, [req.session.user.fbid], (err, row) => {
+            if (err) {
+                console.error(err.message);
+            } else if (row) {
+                user.top_score = row.top_score;
+            } else {
+                //insert this user into the database
+                db.run(`INSERT INTO users (fb_name, fb_id, top_score) VALUES (?, ?, ?);`, [req.session.user.name, req.session.user.fbid, 0], (err) => {
+                    if (err) {
+                        console.error(err.message);
+                    } else {
+                        log('Inserted user into database.');
+                    }
+                });
+            }
+            res.render('info', { numPlayers: clients.length, game: game.stats, user: user });
+
+        });
+    } else {
+        res.render('info', { numPlayers: clients.length, game: game.stats, user: user });
+    };
     // add 1 to the hits_home column in the database
     db.run(`UPDATE general SET hits_home = hits_home + 1 WHERE uid = 1 ;`, (err) => {
         if (err) {
@@ -169,7 +192,7 @@ setInterval(() => {
 app.ws('/game', (ws, req) => {
     // add a unique id to the ws object
     ws.id = uuidv4();
-    
+
     // add client to list
     clients.push(ws);
 
@@ -181,8 +204,18 @@ app.ws('/game', (ws, req) => {
     if (req.session.user) {
         ws.user = req.session.user;
         game.blobs[game.blobs.length - 1].name = req.session.user.name;
+        game.blobs[game.blobs.length - 1].fbid = req.session.user.fbid;
+        // get the user from the database
+        db.get(`SELECT * FROM users WHERE fb_id = ? ;`, [req.session.user.fbid], (err, row) => {
+            if (err) {
+                console.error(err.message);
+            } else if (row) {
+                console.log("User found: ", row);
+                game.blobs[game.blobs.length - 1].top_score = row.top_score;
+            }
+        });
     }
-    
+
     ws.on('message', (message) => {
         message = JSON.parse(message);
         if (message.press) {
@@ -192,8 +225,8 @@ app.ws('/game', (ws, req) => {
                 player[message.press] = true;
             }
         }
-        
-        
+
+
         if (message.release) {
             // find blob with this ws id
             let player = game.blobs.find(b => b.id == ws.id);

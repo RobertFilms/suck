@@ -57,6 +57,7 @@
   <p><a href="/game">Click here to play</a></p>
   <% if (user.name) { %>
     <p>Welcome back, <%- user.name %></p>
+    <p>Your biggest suck was <%- user.top_score %></p>
   <% } else { %>
     <p><a href="/login">or log in first</a></p>
   <% } %>
