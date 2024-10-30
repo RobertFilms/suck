@@ -10,8 +10,8 @@ Try a demo: [suck.animetidd.is](http://suck.animetidd.is/)
 - Unzip
 - Navigate to folder in shell
 - Run `npm i`
-- Run `node app.js`
 - Copy `data/database_template.db` to `/data/database.db`
+- Run `node app.js`
 - In browser, go to `http://localhost:3000`
 - Share your IP with friends (they replace `localhost` with your IP)
 - Suck
@@ -22,4 +22,4 @@ Try a demo: [suck.animetidd.is](http://suck.animetidd.is/)
 - The website, the game loop, and the database are in `app.js`
 
 #### Deployment
-- You can add a `/.env` file containing `PORT=xxxx` to change your port
+- You can add a `/.env` file containing the configuration. See `app.js` for more details

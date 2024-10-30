@@ -19,7 +19,10 @@ const { log } = require('console');
 // import custome GameCode
 const GameCode = require('./GameCode.js');
 
-// load the port from the environment variables
+// Load the settings from the environment variables
+// To set your own, make a file called ".env",
+// and add lines like this: PORT=3000
+
 // The port to run this on
 const PORT = process.env.PORT || 3000;
 // The URL for the Formbar authentication server
@@ -39,7 +42,7 @@ app.use(express.static(__dirname + '/public'));
 
 // create a session middleware with a secret key
 const sessionMiddleware = session({
-    secret: 'your-secret-key',
+    secret: FB_SECRET,
     resave: false,
     saveUninitialized: true,
     // Add a store if needed, like Redis for scalability
@@ -64,31 +67,32 @@ app.get('/', (req, res) => {
         user.top_score = 0;
         // get the user from the database
         db.get(`SELECT * FROM users WHERE fb_id = ? ;`, [req.session.user.fbid], (err, row) => {
-            if (err) {
+            if (err) { // if there was an error, log it
                 console.error(err.message);
-            } else if (row) {
+            } else if (row) { // if the user was found, update the user object's score
                 user.top_score = row.top_score;
-            } else {
-                //insert this user into the database
+            } else { //if no user was found, insert this user into the database
                 db.run(`INSERT INTO users (fb_name, fb_id, top_score) VALUES (?, ?, ?);`, [req.session.user.name, req.session.user.fbid, 0], (err) => {
-                    if (err) {
+                    if (err) { // if there was an error, log it
                         console.error(err.message);
-                    } else {
+                    } else { // if the user was inserted, log it
                         log('Inserted user into database.');
                     }
                 });
             }
+            // render the home page with the stats we've found
             res.render('info', { numPlayers: clients.length, game: game.stats, user: user });
 
         });
     } else {
+        // render the home page without user stats
         res.render('info', { numPlayers: clients.length, game: game.stats, user: user });
     };
     // add 1 to the hits_home column in the database
     db.run(`UPDATE general SET hits_home = hits_home + 1 WHERE uid = 1 ;`, (err) => {
-        if (err) {
+        if (err) { // if there was an error, log it
             console.error(err.message);
-        } else {
+        } else { // if the update was successful, add to the live count
             game.stats.hits_home++;
         }
     });
@@ -96,14 +100,17 @@ app.get('/', (req, res) => {
 
 // game page
 app.get('/game', (req, res) => {
+    // create a blank user object in case there is no session user
     let user = { name: "", fbid: 0 };
+    // if there is a session user, set the user object to the session user
     if (req.session.user) user = req.session.user;
+    // render the game page with the user object
     res.render('game', { user: user });
     // add 1 to the hits_game column in the database
     db.run(`UPDATE general SET hits_game = hits_game + 1 WHERE uid = 1 ;`, (err) => {
-        if (err) {
+        if (err) { // if there was an error, log it
             console.error(err.message);
-        } else {
+        } else { // if the update was successful, add to the live count
             game.stats.hits_game++;
         }
     });
@@ -111,12 +118,16 @@ app.get('/game', (req, res) => {
 
 // login page
 app.get('/login', (req, res) => {
+    // if there is a session user
     if (req.query.token) {
+        // decode the token and set the session token and user
         let tokenData = jwt.decode(req.query.token);
         req.session.token = tokenData;
         req.session.user = { name: tokenData.username, fbid: tokenData.id };
+        // redirect to the home page
         res.redirect('/');
     } else {
+        // send them to the Formbar login page
         res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`);
     };
 });
@@ -138,19 +149,15 @@ setInterval(() => {
         // update the game state
         game.step();
 
-        // pack all blobs into an update message and send to all clients
-        let update = [];
-        for (const blob of game.blobs) {
-            update.push(blob.pack());
-        }
-
         // send the update message to each client
         for (const client of clients) {
             // find the blobs that are players
             let players = game.blobs.filter(b => b.type == "player");
             // find the client's blob
             let player = players.find(b => b.id == client.id);
+            // create an empty list of nearby blobs
             let nearbyBlobs = [];
+            // if the player exists
             if (player) {
                 // find nearby blobs by filtering blob list with the player's canSee method
                 nearbyBlobs = game.blobs.filter(b => player.canSee(b)).map(b => b.pack());
@@ -187,7 +194,7 @@ setInterval(() => {
         }
     }
 
-}, game.tickSpeed);
+}, game.tickSpeed); // run the game loop every `tickSpeed` milliseconds
 
 app.ws('/game', (ws, req) => {
     // add a unique id to the ws object
@@ -196,13 +203,16 @@ app.ws('/game', (ws, req) => {
     // add client to list
     clients.push(ws);
 
+    // send the client their id when they connect
     ws.send(JSON.stringify({ id: ws.id }));
     log(`Client connected, ${new Date()}: ${ws.id}`);
     // add blob to game with ws's id as the blob id
     game.blobs.push(new GameCode.Player(Math.random() * game.gameWidth, Math.random() * game.gameHeight, 20, ws.id, "player"));
     // add the session user to the ws object and update the blob that was jsut created
     if (req.session.user) {
+        // give the client a user property
         ws.user = req.session.user;
+        // update the blob we just created with the user's name and fbid
         game.blobs[game.blobs.length - 1].name = req.session.user.name;
         game.blobs[game.blobs.length - 1].fbid = req.session.user.fbid;
         // get the user from the database
