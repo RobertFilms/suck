@@ -13,6 +13,7 @@ class Game {
         this.blobs = [];
         this.blobLimit = () => { return ((this.gameWidth + this.gameHeight) / 2) / 10 };
         this.blobAbsorb = 0.1;
+        //Smify thats too much :( of a chance for baddies. ( I do like baddies tho )
         this.baddyChance = 0.3;
         this.maxSize = 50;
         this.numPlayers = 0;
